@@ -1,34 +1,35 @@
-import os
+from helpers import getRandomImageUrl
 import asyncio
-import requests
-from bs4 import BeautifulSoup
-from telegram import Bot
+import json
+from telegram import Update
+from telegram.ext import Application, CommandHandler, CallbackContext
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
 
-def getRandomImageUrl():
-    res = requests.get('https://c.xkcd.com/random/comic/')
-    pageSource = BeautifulSoup(res.text, "html.parser")
-    imageElement = pageSource.select_one("#comic>img")
-    imageUrl = 'https:' + imageElement.get('src')
-    return imageUrl
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text('Enter /xkcd to get a random xkcd comic')
 
 
-
-async def main():
-    print("Started")
-    bot = Bot(token=os.getenv('BOT_TOKEN'))
-    channelId = os.getenv('CHANNEL_ID')
-
+async def sendImage(update: Update, context: CallbackContext):
     imageUrl = getRandomImageUrl()
-    print(imageUrl)
-    await bot.send_photo(channelId, imageUrl)
+    await update.message.reply_photo(imageUrl)
+
+
+async def main(event):
+    app = Application.builder().token(os.getenv('BOT_TOKEN')).build()
+
+    app.add_handler(CommandHandler('xkcd', sendImage))
+
+    await app.initialize()
+    update = Update.de_json(data=json.loads(event['body']), bot=app.bot)
+    await app.process_update(update=update)
 
 
 def lambda_handler(event, context):
-    asyncio.run(main())
+    asyncio.run(main(event))
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
